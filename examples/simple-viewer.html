@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Poll Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .poll {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .poll-question {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .poll-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+
+        .option-text {
+            font-weight: 500;
+        }
+
+        .vote-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .vote-count {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .vote-percentage {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+
+        .refresh-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn:hover {
+            background: #218838;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+    </style>    
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Live Poll Results</h1>
+            <p>Real-time polling data viewer</p>
+        </div>
+
+        <button class="refresh-btn" onclick="loadPolls()">🔄 Refresh Data</button>
+
+        <div id="pollsContainer" class="loading">
+            Loading polls...
+        </div>
+
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        async function loadPolls() {
+            try {
+                document.getElementById('pollsContainer').innerHTML = '<div class="loading">Loading polls...</div>';
+
+                const response = await fetch(`${API_BASE}/polls`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to load polls');
+                }
+
+                displayPolls(result.data);
+                updateLastUpdated();
+            } catch (error) {
+                document.getElementById('pollsContainer').innerHTML = `
+                    <div class="error">
+                        ❌ Error loading polls: ${error.message}
+                        <br><br>
+                        Make sure the server is running on http://localhost:3000
+                    </div>
+                `;
+            }
+        }
+
+        function displayPolls(polls) {
+            const container = document.getElementById('pollsContainer');
+
+            if (polls.length === 0) {
+                container.innerHTML = '<div class="loading">No polls found</div>';
+                return;
+            }
+
+            container.innerHTML = polls.map(poll => {
+                const totalVotes = poll.options.reduce((sum, opt) => sum + opt._count.votes, 0);
+
+                return `
+                    <div class="poll">
+                        <div class="poll-question">${poll.question}</div>
+                        <div class="poll-meta">
+                            👤 Created by: ${poll.creator.name} | 
+                            📅 ${new Date(poll.createdAt).toLocaleDateString()} | 
+                            🗳️ Total votes: ${totalVotes} |
+                            ${poll.isPublished ? '✅ Published' : '❌ Draft'}
+                        </div>
+                        
+                        ${poll.options.map(option => {
+                    const percentage = totalVotes > 0 ? (option._count.votes / totalVotes * 100).toFixed(1) : 0;
+                    return `
+                                <div class="option">
+                                    <div class="option-text">${option.text}</div>
+                                    <div class="vote-info">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                        <span class="vote-count">${option._count.votes}</span>
+                                        <span class="vote-percentage">${percentage}%</span>
+                                    </div>
+                                </div>
+                            `;
+                }).join('')}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateLastUpdated() {
+            document.getElementById('lastUpdated').textContent =
+                `Last updated: ${new Date().toLocaleString()}`;
+        }
+
+        // Auto-refresh every 10 seconds
+        function startAutoRefresh() {
+            setInterval(loadPolls, 10000);
+        }
+
+        // Load polls on page load
+        window.onload = () => {
+            loadPolls();
+            startAutoRefresh();
+        };
+    </script>
+</body>
+
+</html>
