@@ -95,3 +95,8 @@ A Node.js backend service for real-time polling with WebSocket support, built wi
 - `poll:join` - Join a poll room for real-time updates
 - `poll:leave` - Leave a poll room
 - `vote:update` - Receive real-time vote count updates
+
+## Show Live result
+
+- `Redirect to "localhost:3000/http://localhost:3000/examples/socket-client.html" for detailed dashboard results
+- `For Simpler to see just pole result redirect to "http://localhost:3000/examples/simple-viewer.html" 
